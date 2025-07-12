@@ -5,6 +5,11 @@ const transactionsRoutes = require("./routes/transactions");
 
 dotenv.config();
 
+app.get('/', (req, res) => {
+  res.send('API de Finanças está online ✅');
+});
+
+
 const app = express();
 app.use(cors());
 app.use(express.json());
