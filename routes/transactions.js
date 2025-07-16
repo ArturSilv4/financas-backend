@@ -2,17 +2,21 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-router.get("/", async (req, res) => {
-  const { month, year } = req.query;
-  try {
-    const result = await db.query(
-      "SELECT * FROM transactions WHERE EXTRACT(MONTH FROM date) = $1 AND EXTRACT(YEAR FROM date) = $2 ORDER BY date DESC",
-      [month, year]
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.get('/month', authMiddleware, async (req, res) => {
+  const { year, month } = req.query;
+  
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0); // Último dia do mês
+
+  const transactions = await knex('transactions')
+    .where({ user_id: req.user.id })
+    .whereBetween('date', [
+      startDate.toISOString().split('T')[0],
+      endDate.toISOString().split('T')[0]
+    ])
+    .orderBy('date', 'desc');
+
+  res.json(transactions);
 });
 
 router.post("/", async (req, res) => {
@@ -28,18 +32,15 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put('/:id', authMiddleware, async (req, res) => {
   const { id } = req.params;
-  const { type, value, category, description, date } = req.body;
-  try {
-    const result = await db.query(
-      "UPDATE transactions SET type = $1, value = $2, category = $3, description = $4, date = $5 WHERE id = $6 RETURNING *",
-      [type, value, category, description, date, id]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { description, amount, type, date } = req.body;
+
+  await knex('transactions')
+    .where({ id, user_id: req.user.id })
+    .update({ description, amount, type, date });
+
+  res.json({ success: true });
 });
 
 router.delete("/:id", async (req, res) => {
